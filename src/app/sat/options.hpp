@@ -15,6 +15,7 @@ OPTION_GROUP(grpAppSat, "app/sat", "SAT solving options")
     "Supply config for SAT engine subprocess [internal option, do not use]")
 
 OPTION_GROUP(grpAppSatSharing, "app/sat/sharing", "Clause sharing configuration")
+ OPT_BOOL(enableClauseFiltering, "ecf", "enable-clause-filtering", true, "enable clause filtering")
  OPT_INT(bufferedImportedClsGenerations,    "bicg", "buffered-imported-cls-generations", 4,        1,   LARGE_INT, 
     "Number of subsequent full clause sharings to fit in each solver's import buffer")
  OPT_INT(clauseBufferBaseSize,              "cbbs", "clause-buffer-base-size",           1500,     0,   MAX_INT,   
