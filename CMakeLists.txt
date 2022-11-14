@@ -4,6 +4,7 @@ project (mallob)
 find_package(MPI REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 # Build-specific compile options
