@@ -29,6 +29,7 @@
 
 #####################################################################
 # TODO Configuration of your experiments
+#Set to 1 to enable clause filtering, 0 to disable
 ecf=1
 
 # 8 for normal utilization, keeping hardware threads idle
@@ -66,7 +67,7 @@ baselogdir="phuong-first-experiment-dir"
 sublogdir="${baselogdir}/${portfolio}-cbdf${cbdf}-T${timeout}"
 
 # TODO Add further options to these arguments Mallob is called with.
-malloboptions="-t=4 -T=$timeout -v=3 -sleep=1000 -appmode=fork -v=3 -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=500 -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ecf=1"
+malloboptions="-t=4 -T=$timeout -v=3 -sleep=1000 -appmode=fork -v=3 -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=500 -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ecf=$ecf"
 
 #####################################################################
 
