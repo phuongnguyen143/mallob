@@ -213,27 +213,30 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 	_last_num_cls_to_import = 0;
 	_last_num_admitted_cls_to_import = 0;
 
-	// Apply provided global filter to buffer (in-place operation)
-	if (filter != nullptr) {
-		_logger.log(verb+2, "DG apply global filter\n");
-		const int bitsPerElem = sizeof(int)*8;
-		int shift = bitsPerElem;
-		int filterPos = -1;
-		BufferReducer reducer(begin, buflen, _params.strictClauseLengthLimit(), _params.groupClausesByLengthLbdSum());
-		buflen = reducer.reduce([&]() {
-			_last_num_cls_to_import++;
-			if (shift == bitsPerElem) {
-				filterPos++;
-				shift = 0;
-			}
-			bool admitted = ((filter[filterPos] & (1 << shift)) == 0);
-			if (admitted) {
-				_last_num_admitted_cls_to_import++;
-			}
-			shift++;
-			return admitted;
-		});
+	if (!_params.clearOutClauseBuffer()) {
+		// Apply provided global filter to buffer (in-place operation)
+		if (filter != nullptr) {
+			_logger.log(verb+2, "DG apply global filter\n");
+			const int bitsPerElem = sizeof(int)*8;
+			int shift = bitsPerElem;
+			int filterPos = -1;
+			BufferReducer reducer(begin, buflen, _params.strictClauseLengthLimit(), _params.groupClausesByLengthLbdSum());
+			buflen = reducer.reduce([&]() {
+				_last_num_cls_to_import++;
+				if (shift == bitsPerElem) {
+					filterPos++;
+					shift = 0;
+				}
+				bool admitted = ((filter[filterPos] & (1 << shift)) == 0);
+				if (admitted) {
+					_last_num_admitted_cls_to_import++;
+				}
+				shift++;
+				return admitted;
+			});
+		}
 	}
+	
 
 	// Prepare to traverse clauses not filtered yet
 	std::vector<std::forward_list<int>> unitLists(importingSolvers.size());
@@ -306,7 +309,12 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 		}
 
 		hist.increment(clause.size);
-		uint8_t producers = _filter.getProducers(clause, _internal_epoch);
+		uint8_t producers;
+		if (_params.setProducersOff()) {
+			producers = 0;
+		} else {
+			producers = _filter.getProducers(clause, _internal_epoch);
+		}
 
 		for (size_t i = 0; i < importingSolvers.size(); i++) {
 			auto& solver = *importingSolvers[i];
