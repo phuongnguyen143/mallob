@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
  
+from cProfile import label
+from turtle import left
 import matplotlib.pyplot as plt
 import math
 import sys
+
 
 markers = ['^', 'o', 'x']
 colors = ['#377eb8', '#ff7f00', '#e41a1c', '#f781bf', '#a65628', '#4daf4a', '#984ea3', '#999999', '#dede00', '#377eb8']
@@ -99,10 +102,30 @@ for cat in catagory_dict.keys():
         x_values += [values[0]]
         y_values += [values[1]]
     
-    plt.scatter(x_values, y_values, marker=markers[marker_idx])
+    plt.scatter(x_values, y_values, marker=markers[marker_idx], label = cat)
     for i,id in enumerate(id_values):
-        plt.annotate(id, (x_values[i], y_values[i]))
+        text = plt.annotate(id, (x_values[i], y_values[i]))
+        text.set_alpha(.4)
     marker_idx += 1
+
+plt.plot(range(305), range(305), color='#dede00')
+
+if heading:
+    plt.title(heading)
+if xlabel:
+    plt.xlabel(xlabel)
+if ylabel:
+    plt.ylabel(ylabel)
+plt.xlim(0, 305)
+plt.ylim(0, 305)
+plt.legend()
+plt.tight_layout()
+plt.grid(color='#dddddd', linestyle='-', linewidth=1)
+plt.gca().set_aspect('equal')
+if outfile:
+    plt.savefig(outfile)
+else:
+    plt.show() 
 
 plt.show()
 
