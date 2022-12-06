@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import math
 import sys
 
-markers = ['^', 'v', 'x']
+markers = ['^', 'o', 'x']
 colors = ['#377eb8', '#ff7f00', '#e41a1c', '#f781bf', '#a65628', '#4daf4a', '#984ea3', '#999999', '#dede00', '#377eb8']
 
 lim = 3600
@@ -69,32 +69,33 @@ if len(files) !=  2:
     print("Need exactly 2 files to compare")
     exit(1)
 
-dom_dict = dict()
-dom_dict["sat"] = dict() # contains map between formular id and values in x and y for sat instance
-dom_dict["unsat"] = dict() # same but for unsat instance
+catagory_dict = dict()
+catagory_dict["sat"] = dict() # contains map between formular id and values in x and y for sat instance
+catagory_dict["unsat"] = dict() # same but for unsat instance
+mallob_timeout = 300
 
 
-for file in files:
+for file_idx, file in enumerate(files):
     for line in open(file, 'r').readlines():
         words = line.rstrip().split(" ")
         id = int(words[0])
         val = float(words[1])
-        dom = words[2]
-        if dom != "sat" and dom != "unsat":
-            continue
-        if id in dom_dict[dom]:
-            dom_dict[dom][id] += [val]
-        else:
-            dom_dict[dom][id] = [val]
+        cat = words[2]
+        if cat == "sat" or cat == "unsat":
+            if id in catagory_dict[cat]:
+                catagory_dict[cat][id][file_idx] = val
+            else:
+                catagory_dict[cat][id] = [300, 300]
+                catagory_dict[cat][id][file_idx] = val
 
-print(dom_dict)
+print(catagory_dict)
 
 marker_idx = 0
-for dom in dom_dict.keys():
+for cat in catagory_dict.keys():
     x_values = []
     y_values = []
     id_values = []
-    for id, values in dom_dict[dom].items():
+    for id, values in catagory_dict[cat].items():
         id_values += [id]
         x_values += [values[0]]
         y_values += [values[1]]
