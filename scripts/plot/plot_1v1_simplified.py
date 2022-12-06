@@ -88,7 +88,6 @@ for file_idx, file in enumerate(files):
                 catagory_dict[cat][id] = [mallob_timeout, mallob_timeout]
                 catagory_dict[cat][id][file_idx] = val
 
-print(catagory_dict)
 
 marker_idx = 0
 for cat in catagory_dict.keys():
@@ -101,6 +100,8 @@ for cat in catagory_dict.keys():
         y_values += [values[1]]
     
     plt.scatter(x_values, y_values, marker=markers[marker_idx])
+    for i,id in enumerate(id_values):
+        plt.annotate(id, (x_values[i], y_values[i]))
     marker_idx += 1
 
 plt.show()
