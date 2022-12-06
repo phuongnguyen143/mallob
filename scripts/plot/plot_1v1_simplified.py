@@ -85,7 +85,7 @@ for file_idx, file in enumerate(files):
             if id in catagory_dict[cat]:
                 catagory_dict[cat][id][file_idx] = val
             else:
-                catagory_dict[cat][id] = [300, 300]
+                catagory_dict[cat][id] = [mallob_timeout, mallob_timeout]
                 catagory_dict[cat][id][file_idx] = val
 
 print(catagory_dict)
