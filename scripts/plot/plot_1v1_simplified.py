@@ -10,31 +10,14 @@ import sys
 markers = ['^', 'o', 'x']
 colors = ['#377eb8', '#ff7f00', '#e41a1c', '#f781bf', '#a65628', '#4daf4a', '#984ea3', '#999999', '#dede00', '#377eb8']
 
-lim = 3600
-out = 4000
-border_lo = 0.001
-border_hi = 5000
 
-msize = 6
-pltxsize = 5
-pltysize = 5
-xmin = None
-xmax = None
-ymin = None
-ymax = None
-y2 = None
-
-files = []
-runtime_maps = []
 labels = []
-xlabel = None
-ylabel = None
-max_id = -1
-min_val = lim
-heading = ""
+files = []
 outfile = None
-sat = []
-unsat = []
+catagory_dict = dict()
+catagory_dict["sat"] = dict() # contains map between formular id and values in x and y for sat instance
+catagory_dict["unsat"] = dict() # same but for unsat instance
+mallob_timeout = 300
 
 for arg in sys.argv[1:]:
     if arg.startswith("-l="):
@@ -72,10 +55,7 @@ if len(files) !=  2:
     print("Need exactly 2 files to compare")
     exit(1)
 
-catagory_dict = dict()
-catagory_dict["sat"] = dict() # contains map between formular id and values in x and y for sat instance
-catagory_dict["unsat"] = dict() # same but for unsat instance
-mallob_timeout = 300
+
 
 
 for file_idx, file in enumerate(files):
