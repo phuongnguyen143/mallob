@@ -99,9 +99,10 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 		assert(clause.lbd <= clause.size);
 	}
 
-	int inversedLbd = clauseSize - clause.lbd; 
+	srand(time(NULL) + clause.lbd + solverId);
+	int randomLbd = rand() % clauseSize + 1;
 
-	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, inversedLbd + (condVarOrZero == 0 ? 0 : 1));
+	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, randomLbd + (condVarOrZero == 0 ? 0 : 1));
 
 	// Add clause length to statistics
 	_hist_produced.increment(clauseSize);
