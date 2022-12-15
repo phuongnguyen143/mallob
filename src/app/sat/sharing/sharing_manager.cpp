@@ -46,6 +46,7 @@ SharingManager::SharingManager(
 		_solvers[i]->setExtLearnedClauseCallback(callback);
 		_solver_revisions.push_back(_solvers[i]->getSolverSetup().solverRevision);
 		_solver_stats.push_back(&_solvers[i]->getSolverStatsRef());
+		_randomGeneratorForSolver.push_back(SplitMix64Rng(i));
 	}
 }
 
@@ -99,7 +100,27 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 		assert(clause.lbd <= clause.size);
 	}
 
-	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, clause.lbd + (condVarOrZero == 0 ? 0 : 1));
+	std::string lbdMode = _params.lbdMode();
+	LOGGER(_logger, V2_INFO, "LBD experiment mode : %s\n",lbdMode.c_str());
+	
+	int experimentalLbd = clause.lbd;
+
+	if (lbdMode.compare("WORST") == 0) {
+		LOGGER(_logger, V2_INFO, "LBD experiment : using worst lbd for every clause");
+		experimentalLbd = clauseSize;
+	} else if (lbdMode.compare("REVERSE") == 0) {
+		LOGGER(_logger, V2_INFO, "LBD experiment : using reversed lbd value for every clause");
+		experimentalLbd = (clauseSize + 2) - clause.lbd; 
+	} else if (lbdMode.compare("RANDOM") == 0) {
+		LOGGER(_logger, V2_INFO, "LBD experiment : using random lbd value for every clause");
+		if (clauseSize > 2) {
+			experimentalLbd = _randomGeneratorForSolver[solverId]() % (clauseSize - 1) + 2;
+		}
+	} else {
+		LOGGER(_logger, V2_INFO, "LBD experiment : using normal lbd values");
+	}
+
+	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, experimentalLbd + (condVarOrZero == 0 ? 0 : 1));
 
 	// Add clause length to statistics
 	_hist_produced.increment(clauseSize);
@@ -215,6 +236,7 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 	_last_num_admitted_cls_to_import = 0;
 
 	if (!_params.clearOutClauseBuffer()) {
+		_logger.log(V2_INFO, "Filtering experiment : turn on filter past");
 		// Apply provided global filter to buffer (in-place operation)
 		if (filter != nullptr) {
 			_logger.log(verb+2, "DG apply global filter\n");
@@ -236,6 +258,8 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 				return admitted;
 			});
 		}
+	} else {
+		_logger.log(V2_INFO, "Filtering experiment : turn off filter past");
 	}
 	
 
@@ -312,8 +336,10 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 		hist.increment(clause.size);
 		uint8_t producers;
 		if (_params.setProducersOff()) {
+			_logger.log(V2_INFO, "Filtering experiment : turn off filter mirroring");
 			producers = 0;
 		} else {
+			_logger.log(V2_INFO, "Filtering experiment : turn on filter mirroring");
 			producers = _filter.getProducers(clause, _internal_epoch);
 		}
 
