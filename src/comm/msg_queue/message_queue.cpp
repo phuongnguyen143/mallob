@@ -1,7 +1,5 @@
 
-#include "comm/message_queue.hpp"
-
-#include "comm/message_handle.hpp"
+#include "message_queue.hpp"
 
 #include <list>
 #include <cmath>
@@ -16,6 +14,7 @@
 MessageQueue::MessageQueue(int maxMsgSize) : _max_msg_size(maxMsgSize) {
     
     MPI_Comm_rank(MPI_COMM_WORLD, &_my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &_comm_size);
     _recv_data = (uint8_t*) malloc(maxMsgSize+20);
 
     _current_recv_tag = &_default_tag_var;
@@ -39,12 +38,14 @@ MessageQueue::~MessageQueue() {
     free(_recv_data);
 }
 
-void MessageQueue::registerCallback(int tag, const MsgCallback& cb) {
+MessageQueue::CallbackRef MessageQueue::registerCallback(int tag, const MsgCallback& cb) {
     if (_callbacks.count(tag)) {
-        LOG(V0_CRIT, "More than one callback for tag %i!\n", tag);
-        abort();
+        LOG(V1_WARN, "[WARN] More than one callback for tag %i!\n", tag);
     }
-    _callbacks[tag] = cb;
+    _callbacks[tag].push_back(cb);
+    auto it = _callbacks[tag].end();
+    --it;
+    return it;
 }
 
 void MessageQueue::registerSentCallback(int tag, const SendDoneCallback& cb) {
@@ -60,33 +61,29 @@ void MessageQueue::clearCallbacks() {
     _send_done_callbacks.clear();
 }
 
-int MessageQueue::send(DataPtr data, int dest, int tag) {
+void MessageQueue::clearCallback(int tag, const CallbackRef& ref) {
+    _callbacks[tag].erase(ref);
+}
+
+int MessageQueue::send(const DataPtr& data, int dest, int tag) {
 
     *_current_send_tag = tag;
 
     // Initialize send handle
-    {
-        SendHandle handle(_running_send_id++, dest, tag, data, _max_msg_size);
-
-        int msglen = handle.data->size();
-        LOG(V5_DEBG, "MQ SEND n=%i d=[%i] t=%i c=(%i,...,%i,%i,%i)\n", handle.data->size(), dest, tag, 
-            msglen>=1*sizeof(int) ? *(int*)(handle.data->data()) : 0, 
-            msglen>=3*sizeof(int) ? *(int*)(handle.data->data()+msglen - 3*sizeof(int)) : 0, 
-            msglen>=2*sizeof(int) ? *(int*)(handle.data->data()+msglen - 2*sizeof(int)) : 0, 
-            msglen>=1*sizeof(int) ? *(int*)(handle.data->data()+msglen - 1*sizeof(int)) : 0);
-
-        if (dest == _my_rank) {
-            // Self message
-            _self_recv_queue.push_back(std::move(handle));
-            return _self_recv_queue.back().id;
-        }
-
-        _send_queue.push_back(std::move(handle));
+    if (dest == _my_rank) {
+        // Self message
+        _self_recv_queue.emplace_back(_running_send_id++, dest, tag, data, _max_msg_size);
+        SendHandle& h = _self_recv_queue.back();
+        h.printSendMsg();
+        return h.id;
+    } else {
+        _send_queue.emplace_back(_running_send_id++, dest, tag, data, _max_msg_size);
     }
 
     SendHandle& h = _send_queue.back();
+    h.printSendMsg();
     if (_num_concurrent_sends < _max_concurrent_sends) {
-        h.sendNext();
+        h.sendNext(_max_msg_size);
         _num_concurrent_sends++;
     }
 
@@ -115,6 +112,10 @@ void MessageQueue::advance() {
     //log(V5_DEBG, "ENDADV\n");
 }
 
+bool MessageQueue::hasOpenSends() {
+    return !_send_queue.empty();
+}
+
 void MessageQueue::runFragmentedMessageAssembler() {
 
     while (_batch_assembler.continueRunning()) {
@@ -139,9 +140,8 @@ void MessageQueue::runFragmentedMessageAssembler() {
             // concurrently clean up any fragments already received
             auto lock = _garbage_mutex.getLock();
             int numFragments = 0;
-            for (auto& frag : data.dataFragments) if (frag != nullptr) {
-                std::vector<uint8_t>* ptr = frag.release();
-                _garbage_queue.push_back(DataPtr(ptr));
+            for (auto& frag : data.dataFragments) if (frag) {
+                _garbage_queue.emplace_back(std::move(frag));
                 atomics::incrementRelaxed(_num_garbage);
                 numFragments++;
             }
@@ -156,7 +156,7 @@ void MessageQueue::runFragmentedMessageAssembler() {
         size_t sumOfSizes = 0;
         for (size_t i = 0; i < data.dataFragments.size(); i++) {
             const auto& frag = data.dataFragments[i];
-            assert(frag || LOG_RETURN_FALSE("No valid fragment %i found!\n", i));
+            assert(frag);
             sumOfSizes += frag->size();
         }
         std::vector<uint8_t> outData(sumOfSizes);
@@ -177,10 +177,10 @@ void MessageQueue::runFragmentedMessageAssembler() {
 
 void MessageQueue::runGarbageCollector() {
 
+    DataPtr dataPtr;
     while (_gc.continueRunning()) {
         usleep(1000*1000); // 1s
         while (_num_garbage > 0) {
-            DataPtr dataPtr;
             {
                 auto lock = _garbage_mutex.getLock();
                 dataPtr = std::move(_garbage_queue.front());
@@ -189,9 +189,9 @@ void MessageQueue::runGarbageCollector() {
             //if (dataPtr.use_count() > 0) {
             //    LOG(V4_VVER, "GC %p : use count %i\n", dataPtr.get(), dataPtr.use_count());
             //}
-            dataPtr.reset();
             atomics::decrementRelaxed(_num_garbage);
         }
+        dataPtr.reset();
     }
 }
 
@@ -254,17 +254,15 @@ void MessageQueue::processReceived() {
         }
 
         // Single message
-        //log(V5_DEBG, "MQ singlerecv\n");
-        MessageHandle h;
-        h.setReceive(std::vector<uint8_t>(_recv_data, _recv_data+msglen));
-        h.tag = tag;
-        h.source = source;
+        _received_handle.setReceive(msglen, _recv_data);
+        _received_handle.tag = tag;
+        _received_handle.source = source;
 
         resetReceiveHandle();
 
         // Process message according to its tag-specific callback
-        *_current_recv_tag = h.tag;
-        _callbacks.at(h.tag)(h);
+        *_current_recv_tag = _received_handle.tag;
+        digestReceivedMessage(_received_handle);
         *_current_recv_tag = 0;
     }
 
@@ -299,13 +297,12 @@ void MessageQueue::processSelfReceived() {
         _self_recv_queue.pop_front();
     }
     for (auto& sh : copiedQueue) {
-        MessageHandle h;
-        h.tag = sh.tag;
-        h.source = sh.dest;
-        h.setReceive(std::move(*sh.data));
-        *_current_recv_tag = h.tag;
-        _callbacks.at(h.tag)(h);
-        signalCompletion(h.tag, sh.id);
+        _received_handle.tag = sh.tag;
+        _received_handle.source = sh.dest;
+        _received_handle.setReceive(std::move(*sh.dataPtr));
+        *_current_recv_tag = _received_handle.tag;
+        digestReceivedMessage(_received_handle);
+        signalCompletion(_received_handle.tag, sh.id);
         *_current_recv_tag = 0;
     }
 }
@@ -322,19 +319,13 @@ void MessageQueue::processAssembledReceived() {
             LOG(V5_DEBG, "MQ FUSED t=%i\n", h.tag);
             
             *_current_recv_tag = h.tag;
-            _callbacks.at(h.tag)(h);
+            digestReceivedMessage(h);
             *_current_recv_tag = 0;
             
             if (h.getRecvData().size() > _max_msg_size) {
                 // Concurrent deallocation of large chunk of data
                 auto lock = _garbage_mutex.getLock();
-                _garbage_queue.push_back(
-                    DataPtr(
-                        new std::vector<uint8_t>(
-                            h.moveRecvData()
-                        )
-                    )
-                );
+                _garbage_queue.emplace_back(new std::vector<uint8_t>(h.moveRecvData()));
                 atomics::incrementRelaxed(_num_garbage);
             }
             _fused_queue.pop_front();
@@ -377,17 +368,12 @@ void MessageQueue::processSent() {
         // Batched?
         if (h.isBatched()) {
             // Batch of a large message sent
-            LOG(V5_DEBG, "MQ SENT id=%i %i/%i n=%i d=[%i] t=%i c=(%i,...,%i,%i,%i)\n", h.id, h.sentBatches, 
-                h.totalNumBatches, h.data->size(), h.dest, h.tag, 
-                *(int*)(h.tempStorage.data()), 
-                *(int*)(h.tempStorage.data()+h.tempStorage.size()-3*sizeof(int)), 
-                *(int*)(h.tempStorage.data()+h.tempStorage.size()-2*sizeof(int)),
-                *(int*)(h.tempStorage.data()+h.tempStorage.size()-1*sizeof(int)));
+            h.printBatchArrived();
 
             // More batches yet to send?
             if (!h.isFinished()) {
                 // Send next batch
-                h.sendNext();
+                h.sendNext(_max_msg_size);
                 completed = false;
             }
         }
@@ -397,14 +383,11 @@ void MessageQueue::processSent() {
             signalCompletion(h.tag, h.id);
             _num_concurrent_sends--;
 
-            if (h.data->size() > _max_msg_size) {
+            if (h.dataPtr->size() > _max_msg_size) {
                 // Concurrent deallocation of SendHandle's large chunk of data
                 auto lock = _garbage_mutex.getLock();
-                _garbage_queue.push_back(std::move(h.data));
+                _garbage_queue.emplace_back(std::move(h.dataPtr));
                 atomics::incrementRelaxed(_num_garbage);
-            } else {
-                // Direct deallocation of SendHandle's data
-                h.data.reset();
             }
             
             // Remove handle
@@ -422,9 +405,24 @@ void MessageQueue::processSent() {
     while (_num_concurrent_sends < _max_concurrent_sends && it != _send_queue.end()) {
         SendHandle& h = *it;
         if (!h.isInitiated()) {
-            h.sendNext();
+            h.sendNext(_max_msg_size);
             _num_concurrent_sends++;
         }
         ++it;
+    }
+}
+
+void MessageQueue::digestReceivedMessage(MessageHandle& h) {
+
+    auto& callbacks = _callbacks.at(h.tag);
+
+    if (callbacks.size() == 1) {
+        callbacks.front()(h);
+        return;
+    }
+
+    for (auto& cb : callbacks) {
+        MessageHandle copy(h);
+        cb(copy);
     }
 }

@@ -59,11 +59,10 @@ OPTION_GROUP(grpOutput, "output", "Output")
 
 OPTION_GROUP(grpScheduling, "scheduling", "Scheduling")
  OPT_FLOAT(balancingPeriod,               "p", "balancing-period",                     0.1,  0, LARGE_INT,      "Minimum interval between subsequent rounds of balancing")
- OPT_BOOL(derandomize,                    "derandomize", "",                           true,                    "Derandomize hopping of requests and build a <bounce-alternatives>-regular message graph instead")
  OPT_BOOL(explicitVolumeUpdates,          "evu", "explicit-volume-updates",            false,                   "Broadcast volume updates through job tree instead of letting each PE compute it itself")
  OPT_INT(jobCacheSize,                    "jc", "job-cache-size",                      4,    0, LARGE_INT,      "Size of job cache per PE for suspended yet unfinished job nodes")
  OPT_FLOAT(loadFactor,                    "l", "load-factor",                          1,    0, 1,              "The share of PEs which should be busy at any given time")
- OPT_INT(numBounceAlternatives,           "ba", "bounce-alternatives",                 4,    1, LARGE_INT,      "Number of bounce alternatives per PE (only relevant if -derandomize)")
+ OPT_INT(numBounceAlternatives,           "ba", "bounce-alternatives",                 4,    1, LARGE_INT,      "Number of bounce alternatives per PE")
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -71,6 +70,8 @@ OPTION_GROUP(grpSchedulingMapping, "scheduling/mapping", "Options for mapping wo
  OPT_INT(hopsUntilCollectiveAssignment,   "huca", "hops-until-collective-assignment",  0,    -1, LARGE_INT,     "After a job request hopped this many times, add it to collective negotiation of requests and idle nodes (0: immediately, -1: never");
  OPT_BOOL(reactivationScheduling,         "rs", "use-reactivation-scheduling",         true,                    "Perform reactivation-based scheduling")
  OPT_BOOL(useDormantChildren,             "dc", "dormant-children",                    false,                   "Simple strategy of maintaining local set of dormant child job contexts which the parent tries to reactivate")
+ OPT_BOOL(prefixSumMatching,              "prisma", "prefix-sum-matching",             false,                   "Match requests and idle PEs using prefix sums instead of a routing tree")
+ OPT_BOOL(bulkRequests,                   "br", "bulk-requests",                       false,                   "Encode requests for an entire subtree as a single request")
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -98,6 +99,7 @@ OPTION_GROUP(grpApp, "app", "Application-specific options")
 ///////////////////////////////////////////////////////////////////////
 
 OPTION_GROUP(grpPerformance, "performance", "Performance")
+ OPT_BOOL(memoryPanic,                    "mempanic", "",                              true,                    "Monitor RAM usage per physical machine and switch to memory panic mode if necessary")
  OPT_INT(messageBatchingThreshold,        "mbt", "message-batching-threshold",         1000000, 1000, MAX_INT,  "Employ batching of messages in batches of provided size")
  OPT_INT(processesPerHost,                "pph", "processes-per-host",                 0,    0, LARGE_INT,      "Tells Mallob how many MPI processes are executed on each physical host")
  OPT_BOOL(regularProcessDistribution,     "rpa", "regular-process-allocation",         false,                   "Signal that processes have been allocated regularly, i.e., the i-th machine hosts ranks c*i through c*i + c-1")

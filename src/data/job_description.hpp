@@ -41,6 +41,7 @@ private:
     int _max_demand = 0;
     int _application_id; // see app_registry
     bool _incremental = false;
+    int _group_id {0};
 
     Checksum _checksum;
     const bool _use_checksums = false;
@@ -100,6 +101,7 @@ public:
         _root_rank = other._root_rank;
         _priority = std::move(other._priority);
         _incremental = std::move(other._incremental);
+        _group_id = std::move(other._group_id);
         _revision = std::move(other._revision);
         _client_rank = std::move(other._client_rank);
         _wallclock_limit = std::move(other._wallclock_limit);
@@ -178,6 +180,7 @@ public:
     float getArrival() const {return _arrival;}
     void setIncremental(bool incremental) {_incremental = incremental;}
     bool isIncremental() const {return _incremental;}
+    int getGroupId() const {return _group_id;}
     int getMetadataSize() const;
     
     size_t getFullNonincrementalTransferSize() const {return _data_per_revision[0]->size();}
@@ -194,6 +197,7 @@ public:
     void setAppConfiguration(AppConfiguration&& appConfig) {_app_config = std::move(appConfig);}
     void setPreloadedLiterals(std::vector<int>&& lits) {_preloaded_literals = std::move(lits);}
     void setPreloadedAssumptions(std::vector<int>&& asmpt) {_preloaded_assumptions = std::move(asmpt);}
+    void setGroupId(int groupId) {_group_id = groupId;}
 
     Checksum getChecksum() const {return _checksum;}
     void setChecksum(const Checksum& checksum) {_checksum = checksum;}

@@ -1,20 +1,20 @@
 
-#include "collective_assignment.hpp"
+#include "routing_tree_request_matcher.hpp"
 
 #include "util/assert.hpp"
 
 #include "util/logger.hpp"
-#include "data/job_database.hpp"
+#include "core/scheduling_manager.hpp"
 #include "util/random.hpp"
 
 const uint8_t COLL_ASSIGN_STATUS = 1;
 const uint8_t COLL_ASSIGN_REQUESTS = 2;
 
-void CollectiveAssignment::handle(MessageHandle& handle) {
+void RoutingTreeRequestMatcher::handle(MessageHandle& handle) {
     deserialize(handle.getRecvData(), handle.source);
 }
 
-std::vector<uint8_t> CollectiveAssignment::serialize(const Status& status) {
+std::vector<uint8_t> RoutingTreeRequestMatcher::serialize(const Status& status) {
     std::vector<uint8_t> packed(1 + 2*sizeof(int));
     int i = 0, n;
     n = 1; memcpy(packed.data() + i, &COLL_ASSIGN_STATUS, n); i += n;
@@ -24,7 +24,7 @@ std::vector<uint8_t> CollectiveAssignment::serialize(const Status& status) {
     return packed;
 }
 
-std::vector<uint8_t> CollectiveAssignment::serialize(const std::vector<JobRequest>& requests) {
+std::vector<uint8_t> RoutingTreeRequestMatcher::serialize(const std::vector<JobRequest>& requests) {
     std::vector<uint8_t> packed;
     packed.push_back(COLL_ASSIGN_REQUESTS);
     for (auto& req : requests) {
@@ -34,7 +34,7 @@ std::vector<uint8_t> CollectiveAssignment::serialize(const std::vector<JobReques
     return packed;
 }
 
-void CollectiveAssignment::deserialize(const std::vector<uint8_t>& packed, int source) {
+void RoutingTreeRequestMatcher::deserialize(const std::vector<uint8_t>& packed, int source) {
 
     int i = 0;
     uint8_t kind;
@@ -49,6 +49,7 @@ void CollectiveAssignment::deserialize(const std::vector<uint8_t>& packed, int s
         if (epoch > _epoch) {
             // new epoch
             _epoch = epoch;
+            _tree.setEpoch(_epoch);
             _child_statuses.clear();
             _status_dirty = true;
         }
@@ -60,21 +61,24 @@ void CollectiveAssignment::deserialize(const std::vector<uint8_t>& packed, int s
 
     } else if (kind == COLL_ASSIGN_REQUESTS) {
         // List of job requests
-        n = JobRequest::getTransferSize();
-        while (i+n <= packed.size()) {
-            std::vector<uint8_t> reqPacked(packed.begin()+i, packed.begin()+i+n);
-            JobRequest req = Serializable::get<JobRequest>(reqPacked);
+        size_t i = 1;
+        while (i < packed.size()) {
+            // Extract request
+            std::vector<uint8_t> data(packed.data()+i, packed.data()+i+JobRequest::getMaxTransferSize());
+            JobRequest req = Serializable::get<JobRequest>(data);
+            // Accept or discard request
             if (req.balancingEpoch >= _epoch || req.requestedNodeIndex == 0) {
                 req.numHops++;
                 LOG_ADD_SRC(V4_VVER, "[CA] got %s", source, req.toStr().c_str());
                 _request_list.insert(req);
             } else LOG_ADD_SRC(V4_VVER, "[CA] DISCARD %s", source, req.toStr().c_str());
-            i += n;
+            // Go to next request
+            i += req.getTransferSize();
         }
     }
 }
 
-int CollectiveAssignment::getDestination() {
+int RoutingTreeRequestMatcher::getDestination() {
     int destination = -1;
     // Is there an optimal fit for this request?
     // -- self?
@@ -95,7 +99,7 @@ int CollectiveAssignment::getDestination() {
     return destination;
 }
 
-void CollectiveAssignment::resolveRequests() {
+void RoutingTreeRequestMatcher::resolveRequests() {
 
     if(_request_list.empty()) return;
 
@@ -121,13 +125,13 @@ void CollectiveAssignment::resolveRequests() {
         int destination = getDestination();
         if (destination < 0) {
             // No fit found
-            if (getCurrentRoot() == MyMpi::rank(MPI_COMM_WORLD)) {
+            if (_tree.getCurrentRoot() == MyMpi::rank(MPI_COMM_WORLD)) {
                 // I am the current root node: Keep request.
                 requestsToKeep.push_back(req);
             } else {
                 // Send job request upwards
-                LOG_ADD_DEST(V5_DEBG, "[CA] Send %s to parent", getCurrentParent(), req.toStr().c_str());
-                requestsPerDestination[getCurrentParent()].push_back(req);
+                LOG_ADD_DEST(V5_DEBG, "[CA] Send %s to parent", _tree.getCurrentParent(), req.toStr().c_str());
+                requestsPerDestination[_tree.getCurrentParent()].push_back(req);
             }
         } else {
             // Fit found: send to respective child
@@ -156,17 +160,13 @@ void CollectiveAssignment::resolveRequests() {
     resolving = false;
 }
 
-void CollectiveAssignment::setStatusDirty() {
-    _status_dirty = true;
-}
-
-void CollectiveAssignment::addJobRequest(JobRequest& req) {
+void RoutingTreeRequestMatcher::addJobRequest(JobRequest& req) {
     if (req.balancingEpoch < _epoch && req.requestedNodeIndex > 0) return; // discard
     LOG(V5_DEBG, "[CA] Add req. %s\n", req.toStr().c_str());
     _request_list.insert(req);
 }
 
-CollectiveAssignment::Status CollectiveAssignment::getAggregatedStatus() {
+RoutingTreeRequestMatcher::Status RoutingTreeRequestMatcher::getAggregatedStatus() {
     Status s;
     s.numIdle = isIdle() ? 1 : 0;
     for (auto& [childRank, childStatus] : _child_statuses) {
@@ -175,12 +175,13 @@ CollectiveAssignment::Status CollectiveAssignment::getAggregatedStatus() {
     return s;
 }
 
-void CollectiveAssignment::advance(int epoch) {
-    if (_job_db == nullptr) return;
+void RoutingTreeRequestMatcher::advance(int epoch) {
+    if (_job_registry == nullptr) return;
     bool newEpoch = epoch > _epoch;
 
     if (newEpoch) {
         _epoch = epoch;
+        _tree.setEpoch(_epoch);
         _child_statuses.clear();
         _status_dirty = true;
     }
@@ -189,26 +190,13 @@ void CollectiveAssignment::advance(int epoch) {
 
     if (_status_dirty) {
         auto status = getAggregatedStatus();
-        if (MyMpi::rank(MPI_COMM_WORLD) == getCurrentRoot()) {
+        if (MyMpi::rank(MPI_COMM_WORLD) == _tree.getCurrentRoot()) {
             LOG(V3_VERB, "[CA] Root: %i requests, %i idle (epoch=%i)\n", _request_list.size(), status.numIdle, _epoch);
         } else {
             auto packedStatus = serialize(status);
-            LOG_ADD_DEST(V5_DEBG, "[CA] Prop. status: %i idle (epoch=%i)", getCurrentParent(), status.numIdle, _epoch);
-            MyMpi::isend(getCurrentParent(), MSG_NOTIFY_ASSIGNMENT_UPDATE, std::move(packedStatus));
+            LOG_ADD_DEST(V5_DEBG, "[CA] Prop. status: %i idle (epoch=%i)", _tree.getCurrentParent(), status.numIdle, _epoch);
+            MyMpi::isend(_tree.getCurrentParent(), MSG_NOTIFY_ASSIGNMENT_UPDATE, std::move(packedStatus));
         }
         _status_dirty = false;
     }
-}
-
-int CollectiveAssignment::getCurrentRoot() {
-    assert(_num_workers > 0);
-    return robin_hood::hash<int>()(_epoch) % _num_workers;
-}
-
-int CollectiveAssignment::getCurrentParent() {
-    return _neighbor_towards_rank[getCurrentRoot()];
-}
-
-bool CollectiveAssignment::isIdle() {
-    return !_job_db->isBusyOrCommitted() && !_job_db->hasInactiveJobsWaitingForReactivation() && !_job_db->hasDormantRoot();
 }

@@ -14,12 +14,13 @@
 #include "util/sys/shared_memory.hpp"
 #include "util/sys/process.hpp"
 #include "util/sys/proc.hpp"
-#include "worker.hpp"
-#include "client.hpp"
+#include "core/worker.hpp"
+#include "core/client.hpp"
 #include "util/sys/thread_pool.hpp"
 #include "interface/api/job_streamer.hpp"
 #include "comm/host_comm.hpp"
 #include "data/job_transfer.hpp"
+#include "comm/msg_queue/message_subscription.hpp"
 
 #include "app/register_includes.h"
 
@@ -63,7 +64,7 @@ inline bool doTerminate(Parameters& params, int rank) {
     
     bool terminate = false;
     if (Terminator::isTerminating(/*fromMainThread=*/true)) terminate = true;
-    if (params.timeLimit() > 0 && Timer::elapsedSeconds() > params.timeLimit()) {
+    if (params.timeLimit() > 0 && Timer::elapsedSecondsCached() > params.timeLimit()) {
         terminate = true;
     }
     if (terminate) {
@@ -96,7 +97,7 @@ void doMainProgram(MPI_Comm& commWorkers, MPI_Comm& commClients, Parameters& par
     int myRank = MyMpi::rank(MPI_COMM_WORLD);
     
     // Register global callback for exiting msg (not specific to worker nor client)
-    MyMpi::getMessageQueue().registerCallback(MSG_DO_EXIT, [myRank](MessageHandle& h) {
+    MessageSubscription exitSubscription(MSG_DO_EXIT, [myRank](MessageHandle& h) {
         LOG_ADD_SRC(V3_VERB, "Received exit signal", h.source);
 
         // Forward exit signal
@@ -131,7 +132,10 @@ void doMainProgram(MPI_Comm& commWorkers, MPI_Comm& commClients, Parameters& par
     }
 
     // Main loop
-    while (!Terminator::isTerminating(/*fromMainthread*/true)) {
+    while (true) {
+
+        // update cached timing
+        Timer::cacheElapsedSeconds();
 
         // Advance worker and client logic
         if (isWorker) worker->advance();

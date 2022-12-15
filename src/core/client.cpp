@@ -213,7 +213,7 @@ void Client::handleNewJob(JobMetadata&& data) {
 void Client::init() {
 
     // Get ID allocator this client should use
-    JobIdAllocator jobIdAllocator(getInternalRank(), getFilesystemInterfacePath());
+    JobIdAllocator jobIdAllocator(MyMpi::rank(_comm), MyMpi::size(_comm), getFilesystemInterfacePath());
 
     // Set up generic JSON interface to communicate with this client
     _json_interface = std::unique_ptr<JsonInterface>(
@@ -251,11 +251,10 @@ void Client::init() {
     });
 
     // Set up callbacks for client-specific MPI messages
-    auto& q = MyMpi::getMessageQueue();
-    q.registerCallback(MSG_NOTIFY_JOB_DONE, [&](MessageHandle& h) {handleJobDone(h);});
-    q.registerCallback(MSG_SEND_JOB_RESULT, [&](MessageHandle& h) {handleSendJobResult(h);});
-    q.registerCallback(MSG_NOTIFY_CLIENT_JOB_ABORTING, [&](MessageHandle& h) {handleAbort(h);});
-    q.registerCallback(MSG_OFFER_ADOPTION_OF_ROOT, [&](MessageHandle& h) {handleOfferAdoption(h);});
+    _subscriptions.emplace_back(MSG_NOTIFY_JOB_DONE, [&](auto& h) {handleJobDone(h);});
+    _subscriptions.emplace_back(MSG_SEND_JOB_RESULT, [&](auto& h) {handleSendJobResult(h);});
+    _subscriptions.emplace_back(MSG_NOTIFY_CLIENT_JOB_ABORTING, [&](auto& h) {handleAbort(h);});
+    _subscriptions.emplace_back(MSG_OFFER_ADOPTION_OF_ROOT, [&](auto& h) {handleOfferAdoption(h);});
 }
 
 int Client::getInternalRank() {
@@ -275,9 +274,9 @@ APIConnector& Client::getAPI() {
 }
 
 void Client::advance() {
-
-    float time = Timer::elapsedSeconds();
     
+    auto time = Timer::elapsedSecondsCached();
+
     // Send notification messages for recently done jobs
     if (_periodic_check_done_jobs.ready(time)) {
         robin_hood::unordered_flat_set<int, robin_hood::hash<int>> doneJobs;
@@ -450,13 +449,13 @@ void Client::handleOfferAdoption(MessageHandle& handle) {
     assert(desc.getId() == req.jobId || LOG_RETURN_FALSE("%i != %i\n", desc.getId(), req.jobId));
 
     // Send job description
-    LOG_ADD_DEST(V4_VVER, "Sending job desc. of #%i rev. %i of size %i", handle.source, desc.getId(), 
+    LOG_ADD_DEST(V4_VVER, "Sending job desc. of #%i rev. %i of size %lu", handle.source, desc.getId(), 
         desc.getRevision(), desc.getTransferSize(desc.getRevision()));
     
     auto data = desc.getSerialization(desc.getRevision());
     desc.clearPayload(desc.getRevision());
     int msgId = MyMpi::isend(handle.source, MSG_SEND_JOB_DESCRIPTION, data);
-    LOG_ADD_DEST(V4_VVER, "Sent job desc. of #%i of size %i", 
+    LOG_ADD_DEST(V4_VVER, "Sent job desc. of #%i of size %lu", 
         handle.source, req.jobId, data->size());
     //LOG(V4_VVER, "%p : use count %i\n", data.get(), data.use_count());
     
