@@ -107,7 +107,7 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 
 	if (lbdMode.compare("WORST") == 0) {
 		experimentalLbd = clauseSize;
-	} else if (lbdMode.compare("REVERSE") == 0) {
+	} else if (lbdMode.compare("REVERSED") == 0) {
 		experimentalLbd = (clauseSize + 2) - clause.lbd; 
 	} else if (lbdMode.compare("RANDOM") == 0) {
 		if (clauseSize > 2) {
