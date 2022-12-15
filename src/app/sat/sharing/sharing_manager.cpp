@@ -101,23 +101,18 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 	}
 
 	std::string lbdMode = _params.lbdMode();
-	LOGGER(_logger, V2_INFO, "LBD experiment mode : %s\n",lbdMode.c_str());
+	LOGGER(_logger, V2_INFO, "LBD experiment mode : %s!\n",lbdMode.c_str());
 	
 	int experimentalLbd = clause.lbd;
 
 	if (lbdMode.compare("WORST") == 0) {
-		LOGGER(_logger, V2_INFO, "LBD experiment : using worst lbd for every clause");
 		experimentalLbd = clauseSize;
 	} else if (lbdMode.compare("REVERSE") == 0) {
-		LOGGER(_logger, V2_INFO, "LBD experiment : using reversed lbd value for every clause");
 		experimentalLbd = (clauseSize + 2) - clause.lbd; 
 	} else if (lbdMode.compare("RANDOM") == 0) {
-		LOGGER(_logger, V2_INFO, "LBD experiment : using random lbd value for every clause");
 		if (clauseSize > 2) {
 			experimentalLbd = _randomGeneratorForSolver[solverId]() % (clauseSize - 1) + 2;
 		}
-	} else {
-		LOGGER(_logger, V2_INFO, "LBD experiment : using normal lbd values");
 	}
 
 	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, experimentalLbd + (condVarOrZero == 0 ? 0 : 1));
