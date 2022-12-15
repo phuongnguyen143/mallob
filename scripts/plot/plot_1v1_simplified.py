@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
  
-from cProfile import label
-from turtle import left
 import matplotlib.pyplot as plt
 import math
 import sys
@@ -54,8 +52,6 @@ for arg in sys.argv[1:]:
 if len(files) !=  2:
     print("Need exactly 2 files to compare")
     exit(1)
-
-
 
 
 for file_idx, file in enumerate(files):
