@@ -230,7 +230,7 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 	_last_num_admitted_cls_to_import = 0;
 
 	if (!_params.clearOutClauseBuffer()) {
-		_logger.log(V2_INFO, "Filtering experiment : turn on filter past");
+		_logger.log(V5_DEBG, "Filtering experiment : turn on filter past\n");
 		// Apply provided global filter to buffer (in-place operation)
 		if (filter != nullptr) {
 			_logger.log(verb+2, "DG apply global filter\n");
@@ -253,7 +253,7 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 			});
 		}
 	} else {
-		_logger.log(V2_INFO, "Filtering experiment : turn off filter past");
+		_logger.log(V5_DEBG, "Filtering experiment : turn off filter past\n");
 	}
 	
 
@@ -330,10 +330,10 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 		hist.increment(clause.size);
 		uint8_t producers;
 		if (_params.setProducersOff()) {
-			_logger.log(V2_INFO, "Filtering experiment : turn off filter mirroring");
+			_logger.log(V5_DEBG, "Filtering experiment : turn off filter mirroring");
 			producers = 0;
 		} else {
-			_logger.log(V2_INFO, "Filtering experiment : turn on filter mirroring");
+			_logger.log(V5_DEBG, "Filtering experiment : turn on filter mirroring");
 			producers = _filter.getProducers(clause, _internal_epoch);
 		}
 
