@@ -36,7 +36,7 @@ ccb=0
 spo=0
 
 #LBD experiment
-#Paramter : DEFAULT, REVERSED, RANDOM
+#Paramters : DEFAULT, REVERSED, RANDOM, WORST
 lbdm="DEFAULT"
 
 #Resharing
