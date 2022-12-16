@@ -114,7 +114,7 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 	}
 
 	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, experimentalLbd + (condVarOrZero == 0 ? 0 : 1));
-	LOGGER(_logger, V5_DEBG, "Transform LBD in %s mode of cls len=%i: %i ~> %i\n", lbdMode.c_str(), clauseSize, clause.lbd, clauseLbd);
+	_logger.log(V5_DEBG, "Transform LBD in %s mode of cls len=%i: %i ~> %i\n", lbdMode.c_str(), clauseSize, clause.lbd, clauseLbd);
 
 	// Add clause length to statistics
 	_hist_produced.increment(clauseSize);
