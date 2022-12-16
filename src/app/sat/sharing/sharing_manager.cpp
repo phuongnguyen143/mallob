@@ -330,10 +330,10 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 		hist.increment(clause.size);
 		uint8_t producers;
 		if (_params.setProducersOff()) {
-			_logger.log(V5_DEBG, "Filtering experiment : turn off filter mirroring");
+			_logger.log(V5_DEBG, "Filtering experiment : turn off filter mirroring\n");
 			producers = 0;
 		} else {
-			_logger.log(V5_DEBG, "Filtering experiment : turn on filter mirroring");
+			_logger.log(V5_DEBG, "Filtering experiment : turn on filter mirroring\n");
 			producers = _filter.getProducers(clause, _internal_epoch);
 		}
 
