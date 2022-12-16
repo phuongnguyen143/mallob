@@ -100,9 +100,7 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 		assert(clause.lbd <= clause.size);
 	}
 
-	std::string lbdMode = _params.lbdMode();
-	LOGGER(_logger, V2_INFO, "LBD experiment mode : %s!\n",lbdMode.c_str());
-	
+	std::string lbdMode = _params.lbdMode();	
 	int experimentalLbd = clause.lbd;
 
 	if (lbdMode.compare("WORST") == 0) {
@@ -116,6 +114,7 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 	}
 
 	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, experimentalLbd + (condVarOrZero == 0 ? 0 : 1));
+	LOGGER(_logger, V5_DEBG, "Transform LBD in %s mode of cls len=%i: %i ~> %i\n", lbdMode.c_str(), clauseSize, clause.lbd, clauseLbd);
 
 	// Add clause length to statistics
 	_hist_produced.increment(clauseSize);
