@@ -70,7 +70,7 @@ timeout=60
 startinstance=1
 
 # TODO Base log directory; use a descriptive name for each experiment. No spaces.
-baselogdir="worst_lbd_with_no_resharing_on_instance_335"
+baselogdir="worst_lbd_with_no_resharing_on_instance_335_with_2_cores"
 
 # TODO Add any further options to the name of this log directory as well.
 # Results from older experiments with the same sublogdir will be overwritten!
@@ -108,7 +108,7 @@ logdir="${sublogdir}/$i"
 rm -rf $logdir 2>/dev/null
 mkdir -p $logdir
 
-mpirun -np $NPROCS --bind-to hwthread --map-by ppr:${NPROCS}:node:pe=$nhwthreadsperproc build/mallob -mono=$instance $malloboptions 2>&1 > $logdir/OUT
+mpirun -np $NPROCS --bind-to hwthread --map-by ppr:2:node:pe=$nhwthreadsperproc build/mallob -mono=$instance $malloboptions 2>&1 > $logdir/OUT
 
 
 
