@@ -18,7 +18,6 @@ AdaptiveClauseDatabase::AdaptiveClauseDatabase(Setup setup):
     // MAIN STUFF IS HERE
     // Iterate over all possible clause length - LBD combinations
     for (int clauseLength = 1; clauseLength <= setup.maxClauseLength; clauseLength++) {
-            std::pair<int, int> lengthLbdPair(clauseLength, clauseLength);
             std::pair<int, int> representantKey;
             ClauseSlotMode opMode = ClauseSlotMode::SAME_SIZE_AND_LBD;
 
