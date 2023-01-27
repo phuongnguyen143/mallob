@@ -15,30 +15,14 @@ AdaptiveClauseDatabase::AdaptiveClauseDatabase(Setup setup):
     // Choose max. sum such that the largest legal clauses will be admitted iff they have LBD 2. 
     int maxSumOfLengthAndLbd = setup.maxClauseLength+2;
 
+    // MAIN STUFF IS HERE
     // Iterate over all possible clause length - LBD combinations
     for (int clauseLength = 1; clauseLength <= setup.maxClauseLength; clauseLength++) {
-        for (int lbd = std::min(clauseLength, 2); lbd <= clauseLength; lbd++) {
-
-            std::pair<int, int> lengthLbdPair(clauseLength, lbd);
+            std::pair<int, int> lengthLbdPair(clauseLength, clauseLength);
             std::pair<int, int> representantKey;
-            ClauseSlotMode opMode;
+            ClauseSlotMode opMode = ClauseSlotMode::SAME_SIZE_AND_LBD;
 
-            // Decide what kind of slot we need for this combination
-            int sumOfLengthAndLbd = clauseLength+lbd;
-            if (setup.slotsForSumOfLengthAndLbd && sumOfLengthAndLbd >= 6 
-                    && sumOfLengthAndLbd <= maxSumOfLengthAndLbd) {
-                // Shared slot for all clauses of this length+lbd sum
-                opMode = ClauseSlotMode::SAME_SUM_OF_SIZE_AND_LBD;
-                representantKey = std::pair<int, int>(sumOfLengthAndLbd-2, 2);
-            } else if (clauseLength > setup.maxLbdPartitionedSize) {
-                // Slot for all clauses of this length
-                opMode = ClauseSlotMode::SAME_SIZE;
-                representantKey = std::pair<int, int>(clauseLength, clauseLength);
-            } else {
-                // Exclusive slot for this length-lbd combination
-                opMode = ClauseSlotMode::SAME_SIZE_AND_LBD;
-                representantKey = lengthLbdPair;
-            }
+            representantKey = std::pair<int, int>(clauseLength, clauseLength);
 
             if (!_size_lbd_to_slot_idx_mode.count(representantKey)) {
                 // Create new slot
@@ -52,19 +36,14 @@ AdaptiveClauseDatabase::AdaptiveClauseDatabase(Setup setup):
                     _binary_slot.implicitLbdOrZero = 2;
                     _binary_slot.mtx.reset(new Mutex());
                 } else {
+                    opMode = ClauseSlotMode::SAME_SIZE;
                     slotIdx = _large_slots.size();
                     _large_slots.emplace_back();
-                    _large_slots.back().implicitLbdOrZero = (opMode == SAME_SIZE_AND_LBD ? lbd : 0);
+                    _large_slots.back().implicitLbdOrZero = clauseLength;
                     _large_slots.back().mtx.reset(new Mutex());
                 }
                 _size_lbd_to_slot_idx_mode[representantKey] = std::pair<int, ClauseSlotMode>(slotIdx, opMode);
             }
-
-            // May be a no-op
-            auto val = _size_lbd_to_slot_idx_mode[representantKey];
-            _size_lbd_to_slot_idx_mode[lengthLbdPair] = val;
-            //LOG(V2_INFO, "SLOT (%i,%i) ~> %i\n", lengthLbdPair.first, lengthLbdPair.second, _size_lbd_to_slot_idx[representantKey]);
-        }
     }
 
     // Store initial literal budget in final (lowest priority) slot
