@@ -40,7 +40,12 @@ spo=0
 lbdm="DEFAULT"
 
 #Resharing
-cfci=500
+#Default resharing inteval
+cfci=2000
+#threshold to update resharing interval
+ttu=2000
+#updated resharing interval
+ucfci=20
 
 # 8 for normal utilization, keeping hardware threads idle
 # 4 for full utilization, spawning a solver at each hardware thread
@@ -77,7 +82,7 @@ baselogdir="myexperiment"
 sublogdir="${baselogdir}/${portfolio}-cbdf${cbdf}-T${timeout}"
 
 # TODO Add further options to these arguments Mallob is called with.
-malloboptions="-t=4 -T=$timeout -v=3 -sleep=1000 -appmode=fork -v=3 -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
+malloboptions="-t=4 -T=$timeout -v=3 -sleep=1000 -appmode=fork -v=3 -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -ttu=$ttu -ucfci=$ucfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
 
 #####################################################################
 
