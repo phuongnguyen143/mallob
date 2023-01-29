@@ -53,13 +53,15 @@ private:
     Mutex _map_mutex;
 
     const int _epoch_horizon;
+    const int _epoch_threshold_to_update;
+    const int _updated_epoch_horizon;
     const bool _reshare_improved_lbd;
 
     ClauseInfo _empty_clause_info;
 
 public:
-    ProducedClauseFilter(int epochHorizon, bool reshareImprovedLbd) : 
-        _epoch_horizon(epochHorizon), _reshare_improved_lbd(reshareImprovedLbd) {}
+    ProducedClauseFilter(int epochHorizon, int epochThresholdToUpdate, int updatedEpochHorizon, bool reshareImprovedLbd) : 
+        _epoch_horizon(epochHorizon), _epoch_threshold_to_update(epochThresholdToUpdate), _updated_epoch_horizon(updatedEpochHorizon), _reshare_improved_lbd(reshareImprovedLbd) {}
 
     enum ExportResult {ADMITTED, FILTERED, DROPPED};
     ExportResult tryRegisterAndInsert(ProducedClauseCandidate&& c, AdaptiveClauseDatabase& cdb) {
@@ -174,6 +176,8 @@ private:
 
     template <typename T>
     inline bool admitSharing(const T& pc, ProducedMap<T>& map, int lbd, int epoch) {
+        int currentEpochHorizon = (epoch < _epoch_threshold_to_update) ? _epoch_horizon : _updated_epoch_horizon;
+        LOG(V5_DEBG, "[Variable resharing interval] epoch %i has resharing interval:  %i\n", epoch, currentEpochHorizon);
         
         auto it = map.find(pc);
         if (it == map.end()) return true; // No entry? -> Admit trivially
@@ -182,7 +186,7 @@ private:
         ClauseInfo& info = it.value();
         if (info.minSharedLbd > 0) {
             // Clause was shared before
-            if (epoch - info.lastSharedEpoch <= _epoch_horizon) {
+            if (epoch - info.lastSharedEpoch <= currentEpochHorizon) {
                 // Clause was shared at some recent point in time
                 if (!_reshare_improved_lbd) {
                     // Never reshare recent clauses, even with improved LBD

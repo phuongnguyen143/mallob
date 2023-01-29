@@ -27,8 +27,12 @@ OPTION_GROUP(grpAppSatSharing, "app/sat/sharing", "Clause sharing configuration"
     "Clause buffer base size in integers")
  OPT_FLOAT(clauseBufferDiscountFactor,      "cbdf", "clause-buffer-discount",            0.9,      0.5, 1,            
     "Clause buffer discount factor: reduce buffer size per PE by <factor> each depth")
- OPT_FLOAT(clauseFilterClearInterval,       "cfci", "clause-filter-clear-interval",      20,       -1,  LARGE_INT,     
+ OPT_FLOAT(clauseFilterClearInterval,       "cfci", "clause-filter-clear-interval",      2000,       -1,  LARGE_INT,     
     "Set clear interval of clauses in solver filters (-1: never clear, 0: always clear")
+ OPT_FLOAT(thresholdToUpdate,       "ttu", "threshold-to-update",      2000,       0,  LARGE_INT,     
+    "Set clear interval of clauses in solver filters (-1: never clear, 0: always clear")
+ OPT_FLOAT(updatedClauseFilterClearInterval,       "ucfci", "updated-clause-filter-clear-interval",      20,       -1,  LARGE_INT,     
+    "updated value of cfci if epoch surpasses threshold")
  OPT_BOOL(groupClausesByLengthLbdSum,       "gclls", "group-by-length-lbd-sum",          false,                   
     "Group and prioritize clauses in buffers by the sum of clause length and LBD score")
  OPT_INT(maxLbdPartitioningSize,            "mlbdps", "max-lbd-partition-size",          8,        1,   LARGE_INT,      
