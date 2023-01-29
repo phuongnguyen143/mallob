@@ -41,6 +41,8 @@ lbdm="WORST"
 
 #Resharing
 cfci=120
+ttu=30
+ucfci=5
 
 # 8 for normal utilization, keeping hardware threads idle
 # 4 for full utilization, spawning a solver at each hardware thread
@@ -70,21 +72,21 @@ timeout=60
 startinstance=1
 
 # TODO Base log directory; use a descriptive name for each experiment. No spaces.
-baselogdir="worst_lbd_with_no_resharing_on_instance_335_with_2_cores"
+baselogdir="variable_resharing_120_30_5"
 
 # TODO Add any further options to the name of this log directory as well.
 # Results from older experiments with the same sublogdir will be overwritten!
 sublogdir="${baselogdir}/${portfolio}-cbdf${cbdf}-T${timeout}"
 
 # TODO Define single instance file
-instance="instances/instance_335.cnf"
+instance="instances/r3unsat_300.cnf"
 
 # TODO Define verbosity
 verbosity=4
 
 
 # TODO Add further options to these arguments Mallob is called with.
-malloboptions="-t=4 -T=$timeout -v=3 -sleep=1000 -appmode=fork -v=$verbosity -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
+malloboptions="-t=4 -T=$timeout -v=5 -sleep=1000 -appmode=fork -v=$verbosity -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -ttu=$ttu -ucfci=$ucfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
 
 # Cleanup / killing function
 function cleanup() {
