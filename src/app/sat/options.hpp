@@ -29,6 +29,10 @@ OPTION_GROUP(grpAppSatSharing, "app/sat/sharing", "Clause sharing configuration"
     "Clause buffer discount factor: reduce buffer size per PE by <factor> each depth")
  OPT_FLOAT(clauseFilterClearInterval,       "cfci", "clause-filter-clear-interval",      20,       -1,  LARGE_INT,     
     "Set clear interval of clauses in solver filters (-1: never clear, 0: always clear")
+ OPT_INT(numConflictClausesToSwitchResharing,    "nccts", "num-conflict-clauses-to-switch",          100000,        0,   LARGE_INT,      
+    "when number of conflict clauses of 1 local solver surpass this threshold, change resharing interval")
+ OPT_FLOAT(switchedClauseFilterClearInterval,       "scfci", "switched-clause-filter-clear-interval",      2,       -1,  LARGE_INT,     
+    "value of cfci after switching")
  OPT_BOOL(groupClausesByLengthLbdSum,       "gclls", "group-by-length-lbd-sum",          false,                   
     "Group and prioritize clauses in buffers by the sum of clause length and LBD score")
  OPT_INT(maxLbdPartitioningSize,            "mlbdps", "max-lbd-partition-size",          8,        1,   LARGE_INT,      

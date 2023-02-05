@@ -20,7 +20,7 @@ SharingManager::SharingManager(
 	: _solvers(solvers),
 	_max_deferred_lits_per_solver(maxDeferredLitsPerSolver), 
 	_params(params), _logger(logger), _job_index(jobIndex),
-	_filter(params.clauseFilterClearInterval(), params.reshareImprovedLbd()),
+	_filter(params.reshareImprovedLbd()),
 	_cdb([&]() {
 		AdaptiveClauseDatabase::Setup setup;
 		setup.maxClauseLength = _params.strictClauseLengthLimit();
@@ -188,6 +188,18 @@ int SharingManager::filterSharing(int* begin, int buflen, int* filterOut) {
 	int nbFiltered = 0;
 	int nbTotal = 0;
 
+	float resharingInterval = _params.clauseFilterClearInterval();
+
+
+	for (int i = 0; i < _solver_stats.size(); i++) {
+		if (_solver_stats[i]->conflicts > _params.numConflictClausesToSwitchResharing()) {
+			_logger.log(V5_DEBG, "Switch resharing from cfci:%f to scfci:%f after solver %i has %i > %i conflicts\n", _params.clauseFilterClearInterval(),
+						 _params.switchedClauseFilterClearInterval(), _solvers[i]->getGlobalId(), _solver_stats[i]->conflicts, _params.numConflictClausesToSwitchResharing());
+			resharingInterval = _params.switchedClauseFilterClearInterval();
+			break;
+		}
+	}
+
 	_filter.acquireLock();
 	while (clause.begin != nullptr) {
 		++nbTotal;
@@ -197,8 +209,7 @@ int SharingManager::filterSharing(int* begin, int buflen, int* filterOut) {
 			filterOut[filterPos] = 0;
 			shift = 0;
 		}
-		
-		if (!_filter.admitSharing(clause, _internal_epoch)) {
+		if (!_filter.admitSharing(clause, _internal_epoch, (int) resharingInterval)) {
 			// filtered!
 			auto bitFiltered = 1 << shift;
 			filterOut[filterPos] |= bitFiltered;

@@ -52,14 +52,13 @@ private:
 
     Mutex _map_mutex;
 
-    const int _epoch_horizon;
     const bool _reshare_improved_lbd;
 
     ClauseInfo _empty_clause_info;
 
 public:
-    ProducedClauseFilter(int epochHorizon, bool reshareImprovedLbd) : 
-        _epoch_horizon(epochHorizon), _reshare_improved_lbd(reshareImprovedLbd) {}
+    ProducedClauseFilter(bool reshareImprovedLbd) : 
+        _reshare_improved_lbd(reshareImprovedLbd) {}
 
     enum ExportResult {ADMITTED, FILTERED, DROPPED};
     ExportResult tryRegisterAndInsert(ProducedClauseCandidate&& c, AdaptiveClauseDatabase& cdb) {
@@ -135,21 +134,21 @@ public:
         }
     }
 
-    bool admitSharing(Mallob::Clause& c, int epoch) {
+    bool admitSharing(Mallob::Clause& c, int epoch, int epochHorizon) {
 
         if (c.size == 1) {
             ProducedUnitClause pc(c);
-            return admitSharing(pc, _map_units, c.lbd, epoch);
+            return admitSharing(pc, _map_units, c.lbd, epoch, epochHorizon);
 
         } else if (c.size == 2) {
             ProducedBinaryClause pc(c);
-            return admitSharing(pc, _map_binaries, c.lbd, epoch);
+            return admitSharing(pc, _map_binaries, c.lbd, epoch, epochHorizon);
 
         } else {
             ProducedLargeClause pc;
             pc.data = c.begin;
             pc.size = c.size;
-            bool admitted = admitSharing(pc, _map_large_clauses, c.lbd, epoch);
+            bool admitted = admitSharing(pc, _map_large_clauses, c.lbd, epoch, epochHorizon);
             pc.data = nullptr; // avoid freeing of clause data reference
             return admitted;
         }
@@ -173,7 +172,7 @@ private:
     }
 
     template <typename T>
-    inline bool admitSharing(const T& pc, ProducedMap<T>& map, int lbd, int epoch) {
+    inline bool admitSharing(const T& pc, ProducedMap<T>& map, int lbd, int epoch, int epochHorizon) {
         
         auto it = map.find(pc);
         if (it == map.end()) return true; // No entry? -> Admit trivially
@@ -182,7 +181,7 @@ private:
         ClauseInfo& info = it.value();
         if (info.minSharedLbd > 0) {
             // Clause was shared before
-            if (epoch - info.lastSharedEpoch <= _epoch_horizon) {
+            if (epoch - info.lastSharedEpoch <= epochHorizon) {
                 // Clause was shared at some recent point in time
                 if (!_reshare_improved_lbd) {
                     // Never reshare recent clauses, even with improved LBD
