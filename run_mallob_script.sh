@@ -37,10 +37,14 @@ spo=0
 
 #LBD experiment
 #Paramters : DEFAULT, REVERSED, RANDOM, WORST
-lbdm="WORST"
+lbdm="DEFAULT"
 
 #Resharing
 cfci=120
+#number of conflict clause to switch to a new cfci
+nccts=100
+#switched cfici
+scfci=2
 
 # 8 for normal utilization, keeping hardware threads idle
 # 4 for full utilization, spawning a solver at each hardware thread
@@ -70,7 +74,7 @@ timeout=60
 startinstance=1
 
 # TODO Base log directory; use a descriptive name for each experiment. No spaces.
-baselogdir="worst_lbd_with_no_resharing_on_instance_335_with_2_cores"
+baselogdir="first_try_adaptive_resharing_based_on_conflicts"
 
 # TODO Add any further options to the name of this log directory as well.
 # Results from older experiments with the same sublogdir will be overwritten!
@@ -80,11 +84,11 @@ sublogdir="${baselogdir}/${portfolio}-cbdf${cbdf}-T${timeout}"
 instance="instances/instance_335.cnf"
 
 # TODO Define verbosity
-verbosity=4
+verbosity=5
 
 
 # TODO Add further options to these arguments Mallob is called with.
-malloboptions="-t=4 -T=$timeout -v=3 -sleep=1000 -appmode=fork -v=$verbosity -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
+malloboptions="-t=4 -T=$timeout -sleep=1000 -appmode=fork -v=$verbosity -interface-fs=0 -trace-dir=. -pipe-large-solutions=0 -processes-per-host=$NPROCS -regular-process-allocation -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -nccts=$nccts -scfci=$scfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
 
 # Cleanup / killing function
 function cleanup() {
