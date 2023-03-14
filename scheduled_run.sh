@@ -74,9 +74,14 @@ spo=0
 lbdm="DEFAULT"
 
 #Resharing
+#Default resharing inteval
 cfci=2000
+#threshold to update resharing interval
+ttu=2000
+#updated resharing interval
+ucfci=20
 
-malloboptions="-t=4 -T=$timeout -sleep=1000 -appmode=fork -v=3 -interface-fs=0 -trace-dir=. -processes-per-host=$NPROCS -regular-process-allocation=1 -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
+malloboptions="-t=4 -T=$timeout -sleep=1000 -appmode=fork -v=3 -interface-fs=0 -trace-dir=. -processes-per-host=$NPROCS -regular-process-allocation=1 -max-lits-per-thread=50000000 -strict-clause-length-limit=20 -clause-filter-clear-interval=$cfci -ttu=$ttu -ucfci=$ucfci -max-lbd-partition-size=2 -export-chunks=20 -clause-buffer-discount=$cbdf -satsolver=$portfolio -ccb=$ccb -spo=$spo -lbdm=$lbdm"
 
 
 cmd="build/mallob -q $scheduleparameter -log=$logdir -rpa=1 -pph=$taskspernode $malloboptions"
