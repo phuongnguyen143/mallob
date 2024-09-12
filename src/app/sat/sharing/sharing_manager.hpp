@@ -11,6 +11,7 @@
 #include "filter/produced_clause_filter.hpp"
 #include "export_buffer.hpp"
 #include "../data/sharing_statistics.hpp"
+#include "util/random.hpp"
 
 #define CLAUSE_LEN_HIST_LENGTH 256
 
@@ -63,6 +64,8 @@ protected:
 	bool _observed_nonunit_lbd_of_length_minus_one = false;
 
 	int _internal_epoch = 0;
+
+	std::vector<SplitMix64Rng> _randomGeneratorForSolver;
 
 public:
 	SharingManager(std::vector<std::shared_ptr<PortfolioSolverInterface>>& solvers,

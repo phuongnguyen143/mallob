@@ -15,6 +15,12 @@ OPTION_GROUP(grpAppSat, "app/sat", "SAT solving options")
     "Supply config for SAT engine subprocess [internal option, do not use]")
 
 OPTION_GROUP(grpAppSatSharing, "app/sat/sharing", "Clause sharing configuration")
+ OPT_BOOL(clearOutClauseBuffer,               "ccb", "clear-out-clause-buffer",               false,                   
+    "Throw out all filtered clauses from clause buffer")
+ OPT_BOOL(setProducersOff,               "spo", "set-producers-off",               false,                   
+    "set all bit of producers to 0")
+ OPT_STRING(lbdMode,                "lbdm", "lbd-mode", "DEFAULT",                      
+    "Try out different ways of assigning lbd values for clause exchange")
  OPT_INT(bufferedImportedClsGenerations,    "bicg", "buffered-imported-cls-generations", 4,        1,   LARGE_INT, 
     "Number of subsequent full clause sharings to fit in each solver's import buffer")
  OPT_INT(clauseBufferBaseSize,              "cbbs", "clause-buffer-base-size",           1500,     0,   MAX_INT,   

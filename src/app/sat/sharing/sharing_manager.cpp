@@ -46,6 +46,7 @@ SharingManager::SharingManager(
 		_solvers[i]->setExtLearnedClauseCallback(callback);
 		_solver_revisions.push_back(_solvers[i]->getSolverSetup().solverRevision);
 		_solver_stats.push_back(&_solvers[i]->getSolverStatsRef());
+		_randomGeneratorForSolver.push_back(SplitMix64Rng(i));
 	}
 }
 
@@ -98,7 +99,25 @@ void SharingManager::onProduceClause(int solverId, int solverRevision, const Cla
 		assert(clause.lbd >= 1 || LOG_RETURN_FALSE("[ERROR] len=%i lbd=%i!\n", clause.size, clause.lbd));
 		assert(clause.lbd <= clause.size);
 	}
-	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, clause.lbd + (condVarOrZero == 0 ? 0 : 1));
+
+	std::string lbdMode = _params.lbdMode();	
+	int experimentalLbd = clause.lbd;
+
+	if (lbdMode.compare("WORST") == 0) {
+		experimentalLbd = clauseSize;
+	} else if (lbdMode.compare("REVERSED") == 0) {
+		experimentalLbd = (clauseSize + 2) - clause.lbd; 
+		if (experimentalLbd > clauseSize) {
+			experimentalLbd = clauseSize;
+		}
+	} else if (lbdMode.compare("RANDOM") == 0) {
+		if (clauseSize > 2) {
+			experimentalLbd = _randomGeneratorForSolver[solverId]() % (clauseSize - 1) + 2;
+		}
+	}
+
+	int clauseLbd = clauseSize == 1 ? 1 : std::max(2, experimentalLbd + (condVarOrZero == 0 ? 0 : 1));
+	_logger.log(V5_DEBG, "Transform LBD in %s mode of cls len=%i: %i ~> %i\n", lbdMode.c_str(), clauseSize, clause.lbd, clauseLbd);
 
 	// Add clause length to statistics
 	_hist_produced.increment(clauseSize);
@@ -213,27 +232,33 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 	_last_num_cls_to_import = 0;
 	_last_num_admitted_cls_to_import = 0;
 
-	// Apply provided global filter to buffer (in-place operation)
-	if (filter != nullptr) {
-		_logger.log(verb+2, "DG apply global filter\n");
-		const int bitsPerElem = sizeof(int)*8;
-		int shift = bitsPerElem;
-		int filterPos = -1;
-		BufferReducer reducer(begin, buflen, _params.strictClauseLengthLimit(), _params.groupClausesByLengthLbdSum());
-		buflen = reducer.reduce([&]() {
-			_last_num_cls_to_import++;
-			if (shift == bitsPerElem) {
-				filterPos++;
-				shift = 0;
-			}
-			bool admitted = ((filter[filterPos] & (1 << shift)) == 0);
-			if (admitted) {
-				_last_num_admitted_cls_to_import++;
-			}
-			shift++;
-			return admitted;
-		});
+	if (!_params.clearOutClauseBuffer()) {
+		_logger.log(V5_DEBG, "Filtering experiment : turn on filter past\n");
+		// Apply provided global filter to buffer (in-place operation)
+		if (filter != nullptr) {
+			_logger.log(verb+2, "DG apply global filter\n");
+			const int bitsPerElem = sizeof(int)*8;
+			int shift = bitsPerElem;
+			int filterPos = -1;
+			BufferReducer reducer(begin, buflen, _params.strictClauseLengthLimit(), _params.groupClausesByLengthLbdSum());
+			buflen = reducer.reduce([&]() {
+				_last_num_cls_to_import++;
+				if (shift == bitsPerElem) {
+					filterPos++;
+					shift = 0;
+				}
+				bool admitted = ((filter[filterPos] & (1 << shift)) == 0);
+				if (admitted) {
+					_last_num_admitted_cls_to_import++;
+				}
+				shift++;
+				return admitted;
+			});
+		}
+	} else {
+		_logger.log(V5_DEBG, "Filtering experiment : turn off filter past\n");
 	}
+	
 
 	// Prepare to traverse clauses not filtered yet
 	std::vector<std::forward_list<int>> unitLists(importingSolvers.size());
@@ -306,7 +331,14 @@ void SharingManager::digestSharingWithFilter(int* begin, int buflen, const int* 
 		}
 
 		hist.increment(clause.size);
-		uint8_t producers = _filter.getProducers(clause, _internal_epoch);
+		uint8_t producers;
+		if (_params.setProducersOff()) {
+			_logger.log(V5_DEBG, "Filtering experiment : turn off filter mirroring\n");
+			producers = 0;
+		} else {
+			_logger.log(V5_DEBG, "Filtering experiment : turn on filter mirroring\n");
+			producers = _filter.getProducers(clause, _internal_epoch);
+		}
 
 		for (size_t i = 0; i < importingSolvers.size(); i++) {
 			auto& solver = *importingSolvers[i];
